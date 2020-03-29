@@ -87,10 +87,12 @@ public class FritzAhaWebInterface {
     /**
      * This method authenticates with the FRITZ!OS Web Interface and updates the session ID accordingly
      *
+     * This method is synchronized because it is also called from async httpclient threads and 
+     * too many concurrent calls could overload the fritz box and also break the binding. 
      * @return New session ID
      */
     @Nullable
-    public String authenticate() {
+    public synchronized String authenticate() {
         sid = null;
         if (config.getPassword() == null) {
             handler.setStatusInfo(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
@@ -271,8 +273,8 @@ public class FritzAhaWebInterface {
             authenticate();
         }
         FritzAhaContentExchange getExchange = new FritzAhaContentExchange(callback);
-        httpClient.newRequest(getURL(path, addSID(args))).method(GET).onResponseSuccess(getExchange)
-                .onResponseFailure(getExchange) // .onComplete(getExchange)
+        httpClient.newRequest(getURL(path, addSID(args))).timeout(config.getAsyncTimeout(), TimeUnit.MILLISECONDS).method(GET)
+                .onResponseSuccess(getExchange).onResponseFailure(getExchange) // .onComplete(getExchange)
                 .send(getExchange);
         return getExchange;
     }
@@ -293,7 +295,7 @@ public class FritzAhaWebInterface {
             authenticate();
         }
         FritzAhaContentExchange postExchange = new FritzAhaContentExchange(callback);
-        httpClient.newRequest(getURL(path)).timeout(config.getAsyncTimeout(), TimeUnit.SECONDS).method(POST)
+        httpClient.newRequest(getURL(path)).timeout(config.getAsyncTimeout(), TimeUnit.MILLISECONDS).method(POST)
                 .onResponseSuccess(postExchange).onResponseFailure(postExchange) // .onComplete(postExchange)
                 .content(new StringContentProvider(addSID(args), StandardCharsets.UTF_8)).send(postExchange);
         return postExchange;
